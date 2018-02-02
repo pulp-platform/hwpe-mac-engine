@@ -1,7 +1,5 @@
 hwpe-ctrl:
-  group: pulp-open
-  commit: master
+  commit: tags/v1.0
 hwpe-stream:
-  group: pulp-open
-  commit: master
+  commit: tags/v1.0
 
