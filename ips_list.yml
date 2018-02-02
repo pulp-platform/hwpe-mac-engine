@@ -1,0 +1,7 @@
+hwpe-ctrl:
+  group: pulp-open
+  commit: master
+hwpe-stream:
+  group: pulp-open
+  commit: master
+
