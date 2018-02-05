@@ -41,22 +41,22 @@ module mac_top
   flags_engine_t   engine_flags;
 
   hwpe_stream_intf_stream #(
-    .DATA_SIZE(32)
+    .DATA_WIDTH(32)
   ) a (
     .clk ( clk_i )
   );
   hwpe_stream_intf_stream #(
-    .DATA_SIZE(32)
+    .DATA_WIDTH(32)
   ) b (
     .clk ( clk_i )
   );
   hwpe_stream_intf_stream #(
-    .DATA_SIZE(32)
+    .DATA_WIDTH(32)
   ) c (
     .clk ( clk_i )
   );
   hwpe_stream_intf_stream #(
-    .DATA_SIZE(32)
+    .DATA_WIDTH(32)
   ) d (
     .clk ( clk_i )
   );
