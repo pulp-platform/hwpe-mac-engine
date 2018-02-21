@@ -1,5 +1,5 @@
 hwpe-ctrl:
-  commit: tags/v1.0
+  commit: d4c7e56
 hwpe-stream:
-  commit: tags/v1.0.2
+  commit: 22daa35 
 
