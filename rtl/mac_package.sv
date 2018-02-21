@@ -38,6 +38,7 @@ package mac_package;
   // microcode mnemonics -- this should be aligned to the microcode compiler of course!
   parameter int unsigned MAC_UCODE_MNEM_NBITER     = 4 - 4;
   parameter int unsigned MAC_UCODE_MNEM_ITERSTRIDE = 5 - 4;
+  parameter int unsigned MAC_UCODE_MNEM_ONESTRIDE  = 6 - 4;
 
   typedef struct packed {
     logic clear;

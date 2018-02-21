@@ -109,7 +109,7 @@ module mac_streamer
 
   hwpe_stream_sink #(
     .DATA_WIDTH ( 32 )
-  ) i_conv_sink (
+  ) i_d_sink (
     .clk_i       ( clk_i                ),
     .rst_ni      ( rst_ni               ),
     .test_mode_i ( test_mode_i          ),

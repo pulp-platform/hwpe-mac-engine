@@ -47,6 +47,8 @@ module mac_ctrl
 
   logic unsigned [31:0] static_reg_nb_iter;
   logic unsigned [31:0] static_reg_len_iter;
+  logic unsigned [31:0] static_reg_vectstride;
+  logic unsigned [31:0] static_reg_onestride;
   logic unsigned [15:0] static_reg_shift;
   logic static_reg_simplemul;
 
@@ -79,15 +81,16 @@ module mac_ctrl
   /* Direct register file mappings */
   assign static_reg_nb_iter    = reg_file.hwpe_params[MAC_REG_NB_ITER]  + 1;
   assign static_reg_len_iter   = reg_file.hwpe_params[MAC_REG_LEN_ITER] + 1;
-  assign static_reg_shift      = reg_file.hwpe_params[MAC_REG_SHIFT_SIMPLEMUL][31:16] + 1;
+  assign static_reg_shift      = reg_file.hwpe_params[MAC_REG_SHIFT_SIMPLEMUL][31:16];
   assign static_reg_simplemul  = reg_file.hwpe_params[MAC_REG_SHIFT_SIMPLEMUL][0];
   assign static_reg_vectstride = reg_file.hwpe_params[MAC_REG_SHIFT_VECTSTRIDE];
+  assign static_reg_onestride  = 4;
 
   /* Microcode processor */
   generate
     if(UCODE_HARDWIRED) begin
       // equivalent to the microcode in ucode/code.yml
-      assign ucode_flat = 224'h0000000000040000000000000000000000000000000008cb11612c05;
+      assign ucode_flat = 224'h0000000000040000000000000000000000000000000008cd11a12c05;
     end
     else begin
       // the microcode is stored in registers independent of context (job)
@@ -98,16 +101,17 @@ module mac_ctrl
     // loops & bytecode
     ucode_flat,
     // ranges
-    static_reg_nb_iter[11:0],
     12'b0,
     12'b0,
     12'b0,
     12'b0,
-    12'b0
+    12'b0,
+    static_reg_nb_iter[11:0]
   };
   assign ucode_registers_read[MAC_UCODE_MNEM_NBITER]     = static_reg_nb_iter;
   assign ucode_registers_read[MAC_UCODE_MNEM_ITERSTRIDE] = static_reg_vectstride;
-  assign ucode_registers_read[11:2] = '0;
+  assign ucode_registers_read[MAC_UCODE_MNEM_ONESTRIDE]  = static_reg_onestride;
+  assign ucode_registers_read[11:3] = '0;
   hwpe_ctrl_ucode #(
     .NB_LOOPS  ( 1  ),
     .NB_REG    ( 4  ),

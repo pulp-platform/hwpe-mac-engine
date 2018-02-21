@@ -83,7 +83,7 @@ module mac_engine
   // multiply a_i by b_i
   always_comb
   begin : mult_a_X_b
-    mult = $signed(a_i.data * b_i.data);
+    mult = $signed(a_i.data) * $signed(b_i.data);
   end
 
   // r_mult stores a_i * b_i
@@ -130,11 +130,11 @@ module mac_engine
     end
     else if (ctrl_i.enable) begin
       // r_acc value is updated if there is a valid handshake at its input
-      if ((r_cnt == '0) & c_i.valid & c_i.ready) begin
+      if (c_i.valid & c_i.ready) begin
         r_acc <= $signed(c_shifted);
       end
       // r_acc value is updated if there is a valid handshake at its input
-      else if ((r_cnt != '0) & r_mult_valid & r_mult_ready) begin
+      else if (r_mult_valid & r_mult_ready) begin
         r_acc <= $signed(r_acc + r_mult);
       end
     end
@@ -172,6 +172,7 @@ module mac_engine
   begin
     d_o.data  = $signed(d_nonshifted >>> ctrl_i.shift); // no saturation/clipping
     d_o.valid = ctrl_i.enable & d_nonshifted_valid;
+    d_o.strb  = '1; // for now, strb is always '1
   end
 
   // The control counter is implemented directly inside this module; as the control is
@@ -192,7 +193,7 @@ module mac_engine
       r_cnt <= '0;
     end
     else if(ctrl_i.enable) begin
-      if ((ctrl_i.start == 1'b1) || ((r_cnt > 0) && (r_cnt < ctrl_i.len))) begin
+      if ((ctrl_i.start == 1'b1) || ((r_cnt > 0) && (r_cnt < ctrl_i.len) && (r_mult_valid & r_mult_ready == 1'b1))) begin
         r_cnt <= cnt;
       end
     end
@@ -209,18 +210,59 @@ module mac_engine
   // In the following:
   // R_valid & R_ready denominate the handshake at the *output* (Q port) of pipe register R
 
-  // output accepts new value from accumulator when the output handshake is valid or r_acc is invalid
-  assign r_acc_ready  = (d_o.valid    & d_o.ready   ) | ~r_acc_valid;
-  // accumulator accepts new value from multiplier when the r_acc handshake is valid or r_mult is invalid
-  //   1) the d_o handshake is valid or r_mult is invalid (if in simple multiplication mode)
-  //   2) the r_acc handshake is valid or r_mult is invalid (if in scalar product mode)
-  assign r_mult_ready = (ctrl_i.simple_mul) ? (d_o.valid   & d_o.ready  ) | ~r_mult_valid
-                                            : (r_acc_valid & r_acc_ready) | ~r_mult_valid;
-  // multiplier accepts new value from a_i when the r_mult handshake is valid or a_i is invalid
-  assign a_i.ready    = (r_mult_valid & r_mult_ready) | ~a_i.valid;
-  // multiplier accepts new value from b_i when the r_mult handshake is valid or b_i is invalid
-  assign b_i.ready    = (r_mult_valid & r_mult_ready) | ~b_i.valid;
-  // multiplier accepts new value from c_i when the r_acc handshake is valid or c_i is invalid
-  assign c_i.ready    = (r_acc_valid  & r_acc_ready ) | ~c_i.valid;
+  // output accepts new value from accumulator when the output is ready or r_acc is invalid
+  assign r_acc_ready  = d_o.ready | ~r_acc_valid;
+  // accumulator accepts new value from multiplier when
+  //   1) output is ready or r_mult is invalid (if in simple multiplication mode)
+  //   2) r_acc is ready or r_mult is invalid (if in scalar product mode)
+  assign r_mult_ready = (ctrl_i.simple_mul) ? d_o.ready   | ~r_mult_valid
+                                            : r_acc_ready | ~r_mult_valid;
+  // multiplier accepts new value from a_i/b_i when r_mult is ready and both a_i/b_i are valid, or when both a_i/b_i are invalid
+  assign a_i.ready = (r_mult_ready & a_i.valid & b_i.valid) | (~a_i.valid & ~b_i.valid);
+  assign b_i.ready = (r_mult_ready & a_i.valid & b_i.valid) | (~a_i.valid & ~b_i.valid);
+  // multiplier accepts new value from c_i when r_acc is ready or c_i is invalid
+  assign c_i.ready    = r_acc_ready  | ~c_i.valid;
+
+  // The following assertions help in getting the rules on ready & valid right.
+  // They are copied from the general stream rules in hwpe_stream_interfaces.sv
+  // and adapted to the internal r_acc and r_mult signals.
+  `ifndef SYNTHESIS
+    // The data and strb can change their value 1) when valid is deasserted,
+    // 2) in the cycle after a valid handshake, even if valid remains asserted.
+    // In other words, valid data must remain on the interface until
+    // a valid handshake has occurred.
+    property r_acc_change_rule;
+      @(posedge clk_i)
+      ($past(r_acc_valid) & ~($past(r_acc_valid) & $past(r_acc_ready))) |-> (r_acc == $past(r_acc));
+    endproperty;
+    property r_mult_change_rule;
+      @(posedge clk_i)
+      ($past(r_mult_valid) & ~($past(r_mult_valid) & $past(r_mult_ready))) |-> (r_mult == $past(r_mult));
+    endproperty;
+    
+    // The deassertion of valid (transition 1í0) can happen only in the cycle
+    // after a valid handshake. In other words, valid data produced by a source
+    // must be consumed on the sink side before valid is deasserted.
+    property r_acc_valid_deassert_rule;
+      @(posedge clk_i)
+      ($past(r_acc_valid) & ~r_acc_valid) |-> $past(r_acc_valid) & $past(r_acc_ready);
+    endproperty;
+    property r_mult_valid_deassert_rule;
+      @(posedge clk_i)
+      ($past(r_mult_valid) & ~r_mult_valid) |-> $past(r_mult_valid) & $past(r_mult_ready);
+    endproperty;
+
+    R_ACC_VALUE_CHANGE:    assert property(r_acc_change_rule)
+      else $fatal("ASSERTION FAILURE: R_ACC_VALUE_CHANGE", 1);
+
+    R_ACC_VALID_DEASSERT:  assert property(r_acc_valid_deassert_rule)
+      else $fatal("ASSERTION FAILURE R_ACC_VALID_DEASSERT", 1);
+
+    R_MULT_VALUE_CHANGE:   assert property(r_mult_change_rule)
+      else $fatal("ASSERTION FAILURE: R_MULT_VALUE_CHANGE", 1);
+
+    R_MULT_VALID_DEASSERT: assert property(r_mult_valid_deassert_rule)
+      else $fatal("ASSERTION FAILURE R_MULT_VALID_DEASSERT", 1);
+  `endif /* SYNTHESIS */
 
 endmodule // mac_engine
