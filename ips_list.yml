@@ -1,5 +1,5 @@
 hwpe-ctrl:
-  commit: d4c7e56
+  commit: devel
 hwpe-stream:
-  commit: 22daa35 
+  commit: devel 
 
