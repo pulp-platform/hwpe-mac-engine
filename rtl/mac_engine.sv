@@ -129,11 +129,15 @@ module mac_engine
       r_acc <= '0;
     end
     else if (ctrl_i.enable) begin
-      // r_acc value is updated if there is a valid handshake at its input
-      if (c_i.valid & c_i.ready) begin
+      // r_acc value is updated if there are both c_i and r_mult valid handshakes at its input
+      if (r_mult_valid & r_mult_ready & c_i.valid & c_i.ready) begin
+        r_acc <= $signed(c_shifted + r_mult);
+      end
+      // r_acc value is updated if there is a c_i valid handshake at its input
+      else if (c_i.valid & c_i.ready) begin
         r_acc <= $signed(c_shifted);
       end
-      // r_acc value is updated if there is a valid handshake at its input
+      // r_acc value is updated if there is a r_mult valid handshake at its input
       else if (r_mult_valid & r_mult_ready) begin
         r_acc <= $signed(r_acc + r_mult);
       end
