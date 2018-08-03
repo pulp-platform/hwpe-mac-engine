@@ -86,12 +86,12 @@ module mac_top_wrap
     .MP      ( MP      ),
     .ID      ( ID      )
   ) i_mac_top (
-    .clk_i       ( clk_i        ),
-    .rst_ni      ( rst_ni       ),
-    .test_mode_i ( test_mode_i  ),
-    .evt_o       ( evt_o        ),
-    .tcdm        ( tcdm.master  ),
-    .periph      ( periph.slave )
+    .clk_i       ( clk_i       ),
+    .rst_ni      ( rst_ni      ),
+    .test_mode_i ( test_mode_i ),
+    .evt_o       ( evt_o       ),
+    .tcdm        ( tcdm        ),
+    .periph      ( periph      )
   );
 
 endmodule // mac_top_wrap
