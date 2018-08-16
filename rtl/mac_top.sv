@@ -35,6 +35,12 @@ module mac_top
   hwpe_ctrl_intf_periph.slave                   periph
 );
 
+  logic a_fifo_ready, b_fifo_ready, c_fifo_ready;
+
+  hwpe_stream_intf_tcdm tcdm_prefifo [3:0] (
+    .clk ( clk_i )
+  );
+
   ctrl_streamer_t  streamer_ctrl;
   flags_streamer_t streamer_flags;
   ctrl_engine_t    engine_ctrl;
@@ -85,9 +91,59 @@ module mac_top
     .b_o              ( b.source       ),
     .c_o              ( c.source       ),
     .d_i              ( d.sink         ),
-    .tcdm             ( tcdm           ),
+    .tcdm             ( tcdm_prefifo   ),
+    .a_fifo_ready     ( a_fifo_ready   ),
+    .b_fifo_ready     ( b_fifo_ready   ),
+    .c_fifo_ready     ( c_fifo_ready   ),
     .ctrl_i           ( streamer_ctrl  ),
     .flags_o          ( streamer_flags )
+  );
+
+  hwpe_stream_tcdm_fifo_load #(
+    .FIFO_DEPTH ( 8 )
+  ) i_a_tcdm_fifo (
+    .clk_i       ( clk_i           ),
+    .rst_ni      ( rst_ni          ),
+    .clear_i     ( clear_i         ),
+    .flags_o     (                 ),
+    .ready_i     ( a_fifo_ready    ),
+    .tcdm_slave  ( tcdm_prefifo[0] ),
+    .tcdm_master ( tcdm[0]         )
+  );
+
+  hwpe_stream_tcdm_fifo_load #(
+    .FIFO_DEPTH ( 8 )
+  ) i_b_tcdm_fifo (
+    .clk_i       ( clk_i           ),
+    .rst_ni      ( rst_ni          ),
+    .clear_i     ( clear_i         ),
+    .flags_o     (                 ),
+    .ready_i     ( b_fifo_ready    ),
+    .tcdm_slave  ( tcdm_prefifo[1] ),
+    .tcdm_master ( tcdm[1]         )
+  );
+
+  hwpe_stream_tcdm_fifo_load #(
+    .FIFO_DEPTH ( 8 )
+  ) i_c_tcdm_fifo (
+    .clk_i       ( clk_i           ),
+    .rst_ni      ( rst_ni          ),
+    .clear_i     ( clear_i         ),
+    .flags_o     (                 ),
+    .ready_i     ( c_fifo_ready    ),
+    .tcdm_slave  ( tcdm_prefifo[2] ),
+    .tcdm_master ( tcdm[2]         )
+  );
+
+  hwpe_stream_tcdm_fifo_store #(
+    .FIFO_DEPTH ( 8 )
+  ) i_d_tcdm_fifo (
+    .clk_i       ( clk_i           ),
+    .rst_ni      ( rst_ni          ),
+    .clear_i     ( clear_i         ),
+    .flags_o     (                 ),
+    .tcdm_slave  ( tcdm_prefifo[3] ),
+    .tcdm_master ( tcdm[3]         )
   );
 
   mac_ctrl #(
