@@ -154,7 +154,7 @@ module mac_engine
     end
     else if (ctrl_i.enable) begin
       // r_acc_valid is re-evaluated after a valid handshake or in transition to 1
-      if((r_cnt == ctrl_i.len) | (r_acc_valid & r_acc_ready)) begin
+      if(((r_cnt == ctrl_i.len) & r_mult_valid & r_mult_ready) | (r_acc_valid & r_acc_ready)) begin
         r_acc_valid <= (r_cnt == ctrl_i.len);
       end
     end
@@ -204,6 +204,7 @@ module mac_engine
   end
 
   assign flags_o.cnt = r_cnt;
+  assign flags_o.acc_valid = r_acc_valid;
 
   // Ready signals have to be propagated backwards through pipeline stages (combinationally).
   // To avoid deadlocks, the following rules have to be followed:
