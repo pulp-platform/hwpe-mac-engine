@@ -51,6 +51,7 @@ package mac_package;
 
   typedef struct packed {
     logic unsigned [$clog2(MAC_CNT_LEN):0] cnt; // 1 bit more as cnt starts from 1, not 0
+    logic acc_valid;
   } flags_engine_t;
 
   typedef struct packed {

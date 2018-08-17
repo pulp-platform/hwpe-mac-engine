@@ -151,7 +151,7 @@ module mac_fsm (
       FSM_COMPUTE: begin
         ctrl_engine_o.clear  = 1'b0;
         // compute, then update the indeces (and write output if necessary)
-        if(flags_engine_i.cnt == ctrl_i.len) begin
+        if((flags_engine_i.cnt == ctrl_i.len) & flags_engine_i.acc_valid) begin
           next_state = FSM_UPDATEIDX;
         end
       end
