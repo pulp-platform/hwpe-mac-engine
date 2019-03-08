@@ -1,0 +1,18 @@
+hw-mac-engine:
+  incdirs : [
+    .
+  ]
+  files : [
+    mac_package.sv,
+    mac_fsm.sv,
+    mac_ctrl.sv,
+    mac_streamer.sv,
+    mac_engine.sv,
+    mac_top.sv,
+    ../wrap/mac_top_wrap.sv
+  ]
+  vlog_opts : [
+    "-L hwpe_ctrl_lib",
+    "-L hwpe_stream_lib"
+  ]
+

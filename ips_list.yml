@@ -2,4 +2,6 @@ hwpe-ctrl:
   commit: ec068eb
 hwpe-stream:
   commit: 1a9b04f
+tech_cells_generic:
+  commit: tags/pulpissimo-v1.0
 
