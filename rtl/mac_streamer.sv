@@ -47,6 +47,8 @@ module mac_streamer
   output flags_streamer_t flags_o
 );
 
+  logic a_tcdm_fifo_ready, b_tcdm_fifo_ready, c_tcdm_fifo_ready;
+
   hwpe_stream_intf_stream #(
     .DATA_WIDTH ( 32 )
   ) a_prefifo (
@@ -68,43 +70,54 @@ module mac_streamer
     .clk ( clk_i )
   );
 
+  hwpe_stream_intf_tcdm tcdm_fifo [MP-1:0] (
+    .clk ( clk_i )
+  );
+
+  // source and sink modules
   hwpe_stream_source #(
-    .DATA_WIDTH ( 32 )
+    .DATA_WIDTH ( 32 ),
+    .DECOUPLED  ( 1  )
   ) i_a_source (
     .clk_i              ( clk_i                  ),
     .rst_ni             ( rst_ni                 ),
     .test_mode_i        ( test_mode_i            ),
     .clear_i            ( clear_i                ),
-    .tcdm               ( tcdm[0:0]              ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
+    .tcdm               ( tcdm_fifo[0:0]         ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
     .stream             ( a_prefifo.source       ),
     .ctrl_i             ( ctrl_i.a_source_ctrl   ),
-    .flags_o            ( flags_o.a_source_flags )
+    .flags_o            ( flags_o.a_source_flags ),
+    .tcdm_fifo_ready_o  ( a_tcdm_fifo_ready      )
   );
 
   hwpe_stream_source #(
-    .DATA_WIDTH ( 32 )
+    .DATA_WIDTH ( 32 ),
+    .DECOUPLED  ( 1  )
   ) i_b_source (
     .clk_i              ( clk_i                  ),
     .rst_ni             ( rst_ni                 ),
     .test_mode_i        ( test_mode_i            ),
     .clear_i            ( clear_i                ),
-    .tcdm               ( tcdm[1:1]              ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
+    .tcdm               ( tcdm_fifo[1:1]         ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
     .stream             ( b_prefifo.source       ),
     .ctrl_i             ( ctrl_i.b_source_ctrl   ),
-    .flags_o            ( flags_o.b_source_flags )
+    .flags_o            ( flags_o.b_source_flags ),
+    .tcdm_fifo_ready_o  ( b_tcdm_fifo_ready      )
   );
 
   hwpe_stream_source #(
-    .DATA_WIDTH ( 32 )
+    .DATA_WIDTH ( 32 ),
+    .DECOUPLED  ( 1  )
   ) i_c_source (
     .clk_i              ( clk_i                  ),
     .rst_ni             ( rst_ni                 ),
     .test_mode_i        ( test_mode_i            ),
     .clear_i            ( clear_i                ),
-    .tcdm               ( tcdm[2:2]              ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
+    .tcdm               ( tcdm_fifo[2:2]         ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
     .stream             ( c_prefifo.source       ),
     .ctrl_i             ( ctrl_i.c_source_ctrl   ),
-    .flags_o            ( flags_o.c_source_flags )
+    .flags_o            ( flags_o.c_source_flags ),
+    .tcdm_fifo_ready_o  ( c_tcdm_fifo_ready      )
   );
 
   hwpe_stream_sink #(
@@ -114,12 +127,61 @@ module mac_streamer
     .rst_ni      ( rst_ni               ),
     .test_mode_i ( test_mode_i          ),
     .clear_i     ( clear_i              ),
-    .tcdm        ( tcdm[3:3]            ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
+    .tcdm        ( tcdm_fifo[3:3]       ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
     .stream      ( d_postfifo.sink      ),
     .ctrl_i      ( ctrl_i.d_sink_ctrl   ),
     .flags_o     ( flags_o.d_sink_flags )
   );
 
+  // TCDM-side FIFOs
+  hwpe_stream_tcdm_fifo_load #(
+    .FIFO_DEPTH ( 4 )
+  ) i_a_tcdm_fifo_load (
+    .clk_i       ( clk_i             ),
+    .rst_ni      ( rst_ni            ),
+    .clear_i     ( clear_i           ),
+    .flags_o     (                   ),
+    .ready_i     ( a_tcdm_fifo_ready ),
+    .tcdm_slave  ( tcdm_fifo [0]     ),
+    .tcdm_master ( tcdm      [0]     )
+  );
+
+  hwpe_stream_tcdm_fifo_load #(
+    .FIFO_DEPTH ( 4 )
+  ) i_b_tcdm_fifo_load (
+    .clk_i       ( clk_i             ),
+    .rst_ni      ( rst_ni            ),
+    .clear_i     ( clear_i           ),
+    .flags_o     (                   ),
+    .ready_i     ( b_tcdm_fifo_ready ),
+    .tcdm_slave  ( tcdm_fifo [1]     ),
+    .tcdm_master ( tcdm      [1]     )
+  );
+
+  hwpe_stream_tcdm_fifo_load #(
+    .FIFO_DEPTH ( 4 )
+  ) i_c_tcdm_fifo_load (
+    .clk_i       ( clk_i             ),
+    .rst_ni      ( rst_ni            ),
+    .clear_i     ( clear_i           ),
+    .flags_o     (                   ),
+    .ready_i     ( c_tcdm_fifo_ready ),
+    .tcdm_slave  ( tcdm_fifo [2]     ),
+    .tcdm_master ( tcdm      [2]     )
+  );
+
+  hwpe_stream_tcdm_fifo_store #(
+    .FIFO_DEPTH ( 4 )
+  ) i_d_tcdm_fifo_store (
+    .clk_i       ( clk_i         ),
+    .rst_ni      ( rst_ni        ),
+    .clear_i     ( clear_i       ),
+    .flags_o     (               ),
+    .tcdm_slave  ( tcdm_fifo [3] ),
+    .tcdm_master ( tcdm      [3] )
+  );
+
+  // datapath-side FIFOs
   hwpe_stream_fifo #(
     .DATA_WIDTH( 32 ),
     .FIFO_DEPTH( 2  ),
