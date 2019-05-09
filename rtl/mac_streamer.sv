@@ -73,6 +73,18 @@ module mac_streamer
   hwpe_stream_intf_tcdm tcdm_fifo [MP-1:0] (
     .clk ( clk_i )
   );
+  hwpe_stream_intf_tcdm tcdm_fifo_0 [0:0] (
+    .clk ( clk_i )
+  );
+  hwpe_stream_intf_tcdm tcdm_fifo_1 [0:0] (
+    .clk ( clk_i )
+  );
+  hwpe_stream_intf_tcdm tcdm_fifo_2 [0:0] (
+    .clk ( clk_i )
+  );
+  hwpe_stream_intf_tcdm tcdm_fifo_3 [0:0] (
+    .clk ( clk_i )
+  );
 
   // source and sink modules
   hwpe_stream_source #(
@@ -83,7 +95,7 @@ module mac_streamer
     .rst_ni             ( rst_ni                 ),
     .test_mode_i        ( test_mode_i            ),
     .clear_i            ( clear_i                ),
-    .tcdm               ( tcdm_fifo[0:0]         ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
+    .tcdm               ( tcdm_fifo_0            ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
     .stream             ( a_prefifo.source       ),
     .ctrl_i             ( ctrl_i.a_source_ctrl   ),
     .flags_o            ( flags_o.a_source_flags ),
@@ -98,7 +110,7 @@ module mac_streamer
     .rst_ni             ( rst_ni                 ),
     .test_mode_i        ( test_mode_i            ),
     .clear_i            ( clear_i                ),
-    .tcdm               ( tcdm_fifo[1:1]         ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
+    .tcdm               ( tcdm_fifo_1            ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
     .stream             ( b_prefifo.source       ),
     .ctrl_i             ( ctrl_i.b_source_ctrl   ),
     .flags_o            ( flags_o.b_source_flags ),
@@ -113,7 +125,7 @@ module mac_streamer
     .rst_ni             ( rst_ni                 ),
     .test_mode_i        ( test_mode_i            ),
     .clear_i            ( clear_i                ),
-    .tcdm               ( tcdm_fifo[2:2]         ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
+    .tcdm               ( tcdm_fifo_2            ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
     .stream             ( c_prefifo.source       ),
     .ctrl_i             ( ctrl_i.c_source_ctrl   ),
     .flags_o            ( flags_o.c_source_flags ),
@@ -127,11 +139,12 @@ module mac_streamer
     .rst_ni      ( rst_ni               ),
     .test_mode_i ( test_mode_i          ),
     .clear_i     ( clear_i              ),
-    .tcdm        ( tcdm_fifo[3:3]       ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
+    .tcdm        ( tcdm_fifo_3          ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
     .stream      ( d_postfifo.sink      ),
     .ctrl_i      ( ctrl_i.d_sink_ctrl   ),
     .flags_o     ( flags_o.d_sink_flags )
   );
+
 
   // TCDM-side FIFOs
   hwpe_stream_tcdm_fifo_load #(
@@ -142,7 +155,7 @@ module mac_streamer
     .clear_i     ( clear_i           ),
     .flags_o     (                   ),
     .ready_i     ( a_tcdm_fifo_ready ),
-    .tcdm_slave  ( tcdm_fifo [0]     ),
+    .tcdm_slave  ( tcdm_fifo_0[0]    ),
     .tcdm_master ( tcdm      [0]     )
   );
 
@@ -154,7 +167,7 @@ module mac_streamer
     .clear_i     ( clear_i           ),
     .flags_o     (                   ),
     .ready_i     ( b_tcdm_fifo_ready ),
-    .tcdm_slave  ( tcdm_fifo [1]     ),
+    .tcdm_slave  ( tcdm_fifo_1[0]    ),
     .tcdm_master ( tcdm      [1]     )
   );
 
@@ -166,19 +179,19 @@ module mac_streamer
     .clear_i     ( clear_i           ),
     .flags_o     (                   ),
     .ready_i     ( c_tcdm_fifo_ready ),
-    .tcdm_slave  ( tcdm_fifo [2]     ),
+    .tcdm_slave  ( tcdm_fifo_2[0]    ),
     .tcdm_master ( tcdm      [2]     )
   );
 
   hwpe_stream_tcdm_fifo_store #(
     .FIFO_DEPTH ( 4 )
   ) i_d_tcdm_fifo_store (
-    .clk_i       ( clk_i         ),
-    .rst_ni      ( rst_ni        ),
-    .clear_i     ( clear_i       ),
-    .flags_o     (               ),
-    .tcdm_slave  ( tcdm_fifo [3] ),
-    .tcdm_master ( tcdm      [3] )
+    .clk_i       ( clk_i          ),
+    .rst_ni      ( rst_ni         ),
+    .clear_i     ( clear_i        ),
+    .flags_o     (                ),
+    .tcdm_slave  ( tcdm_fifo_3[0] ),
+    .tcdm_master ( tcdm       [3] )
   );
 
   // datapath-side FIFOs

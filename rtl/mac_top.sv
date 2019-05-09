@@ -35,6 +35,7 @@ module mac_top
   hwpe_ctrl_intf_periph.slave                   periph
 );
 
+  logic enable, clear;
   ctrl_streamer_t  streamer_ctrl;
   flags_streamer_t streamer_flags;
   ctrl_engine_t    engine_ctrl;

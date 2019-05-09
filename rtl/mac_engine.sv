@@ -232,6 +232,7 @@ module mac_engine
   // They are copied from the general stream rules in hwpe_stream_interfaces.sv
   // and adapted to the internal r_acc and r_mult signals.
   `ifndef SYNTHESIS
+  `ifndef VERILATOR
     // The data and strb can change their value 1) when valid is deasserted,
     // 2) in the cycle after a valid handshake, even if valid remains asserted.
     // In other words, valid data must remain on the interface until
@@ -268,6 +269,7 @@ module mac_engine
 
     R_MULT_VALID_DEASSERT: assert property(r_mult_valid_deassert_rule)
       else $fatal("ASSERTION FAILURE R_MULT_VALID_DEASSERT", 1);
+  `endif /* VERILATOR */
   `endif /* SYNTHESIS */
 
 endmodule // mac_engine
