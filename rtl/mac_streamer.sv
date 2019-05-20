@@ -95,7 +95,7 @@ module mac_streamer
     .rst_ni             ( rst_ni                 ),
     .test_mode_i        ( test_mode_i            ),
     .clear_i            ( clear_i                ),
-    .tcdm               ( tcdm_fifo_0            ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
+    .tcdm               ( tcdm_fifo_0            ), // this syntax is necessary for Verilator as hwpe_stream_source expects an array of interfaces
     .stream             ( a_prefifo.source       ),
     .ctrl_i             ( ctrl_i.a_source_ctrl   ),
     .flags_o            ( flags_o.a_source_flags ),
@@ -110,7 +110,7 @@ module mac_streamer
     .rst_ni             ( rst_ni                 ),
     .test_mode_i        ( test_mode_i            ),
     .clear_i            ( clear_i                ),
-    .tcdm               ( tcdm_fifo_1            ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
+    .tcdm               ( tcdm_fifo_1            ), // this syntax is necessary for Verilator as hwpe_stream_source expects an array of interfaces
     .stream             ( b_prefifo.source       ),
     .ctrl_i             ( ctrl_i.b_source_ctrl   ),
     .flags_o            ( flags_o.b_source_flags ),
@@ -125,7 +125,7 @@ module mac_streamer
     .rst_ni             ( rst_ni                 ),
     .test_mode_i        ( test_mode_i            ),
     .clear_i            ( clear_i                ),
-    .tcdm               ( tcdm_fifo_2            ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
+    .tcdm               ( tcdm_fifo_2            ), // this syntax is necessary for Verilator as hwpe_stream_source expects an array of interfaces
     .stream             ( c_prefifo.source       ),
     .ctrl_i             ( ctrl_i.c_source_ctrl   ),
     .flags_o            ( flags_o.c_source_flags ),
@@ -139,7 +139,7 @@ module mac_streamer
     .rst_ni      ( rst_ni               ),
     .test_mode_i ( test_mode_i          ),
     .clear_i     ( clear_i              ),
-    .tcdm        ( tcdm_fifo_3          ), // this syntax is necessary as hwpe_stream_source expects an array of interfaces
+    .tcdm        ( tcdm_fifo_3          ), // this syntax is necessary for Verilator as hwpe_stream_source expects an array of interfaces
     .stream      ( d_postfifo.sink      ),
     .ctrl_i      ( ctrl_i.d_sink_ctrl   ),
     .flags_o     ( flags_o.d_sink_flags )
