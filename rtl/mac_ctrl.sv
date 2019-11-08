@@ -49,6 +49,7 @@ module mac_ctrl
   logic unsigned [31:0] static_reg_len_iter;
   logic unsigned [31:0] static_reg_vectstride;
   logic unsigned [31:0] static_reg_onestride;
+  logic unsigned [31:0] static_reg_vect2stride;
   logic unsigned [15:0] static_reg_shift;
   logic static_reg_simplemul;
 
@@ -85,6 +86,7 @@ module mac_ctrl
   assign static_reg_simplemul  = reg_file.hwpe_params[MAC_REG_SHIFT_SIMPLEMUL][0];
   assign static_reg_vectstride = reg_file.hwpe_params[MAC_REG_SHIFT_VECTSTRIDE];
   assign static_reg_onestride  = 4;
+  assign static_reg_vect2stride  = reg_file.hwpe_params[MAC_REG_SHIFT_ITERSTRIDE2];
 
   /* Microcode processor */
   generate
@@ -110,8 +112,9 @@ module mac_ctrl
   };
   assign ucode_registers_read[MAC_UCODE_MNEM_NBITER]     = static_reg_nb_iter;
   assign ucode_registers_read[MAC_UCODE_MNEM_ITERSTRIDE] = static_reg_vectstride;
+  assign ucode_registers_read[MAC_UCODE_MNEM_ITERSTRIDE2] = static_reg_vect2stride;
   assign ucode_registers_read[MAC_UCODE_MNEM_ONESTRIDE]  = static_reg_onestride;
-  assign ucode_registers_read[11:3] = '0;
+  assign ucode_registers_read[11:4] = '0;
   hwpe_ctrl_ucode #(
     .NB_LOOPS  ( 1  ),
     .NB_REG    ( 4  ),

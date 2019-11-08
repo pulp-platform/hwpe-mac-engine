@@ -29,11 +29,12 @@ mnemonics:
     nb_iter:     4
     iter_stride: 5
     one_stride:  6
+    iter_stride2:  7
 
 # actual microcode
 code:
   loop0:
     - { op : add, a : a, b : iter_stride, } # move to next subset of a
-    - { op : add, a : b, b : iter_stride, } # move to next subset of b
+    - { op : add, a : b, b : iter_stride2, } # move to next subset of b
     - { op : add, a : c, b : one_stride,  } # move to next subset of c
     - { op : add, a : d, b : one_stride,  } # move to next subset of d
