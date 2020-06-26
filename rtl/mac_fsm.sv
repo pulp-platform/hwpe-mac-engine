@@ -27,8 +27,8 @@ module mac_fsm (
   input  flags_streamer_t     flags_streamer_i,
   output ctrl_engine_t        ctrl_engine_o,
   input  flags_engine_t       flags_engine_i,
-  output ctrl_ucode_t         ctrl_ucode_o,
-  input  flags_ucode_t        flags_ucode_i,
+  output ctrl_uloop_t         ctrl_uloop_o,
+  input  flags_uloop_t        flags_uloop_i,
   output ctrl_slave_t         ctrl_slave_o,
   input  flags_slave_t        flags_slave_i,
   input  ctrl_regfile_t       reg_file_i,
@@ -61,7 +61,7 @@ module mac_fsm (
     ctrl_streamer_o.a_source_ctrl.addressgen_ctrl.line_length = ctrl_i.len;
     ctrl_streamer_o.a_source_ctrl.addressgen_ctrl.feat_stride = '0;
     ctrl_streamer_o.a_source_ctrl.addressgen_ctrl.feat_length = 1;
-    ctrl_streamer_o.a_source_ctrl.addressgen_ctrl.base_addr   = reg_file_i.hwpe_params[MAC_REG_A_ADDR] + (flags_ucode_i.offs[MAC_UCODE_A_OFFS]);
+    ctrl_streamer_o.a_source_ctrl.addressgen_ctrl.base_addr   = reg_file_i.hwpe_params[MAC_REG_A_ADDR] + (flags_uloop_i.offs[MAC_UCODE_A_OFFS]);
     ctrl_streamer_o.a_source_ctrl.addressgen_ctrl.feat_roll   = '0;
     ctrl_streamer_o.a_source_ctrl.addressgen_ctrl.loop_outer  = '0;
     ctrl_streamer_o.a_source_ctrl.addressgen_ctrl.realign_type = '0;
@@ -71,7 +71,7 @@ module mac_fsm (
     ctrl_streamer_o.b_source_ctrl.addressgen_ctrl.line_length = ctrl_i.len;
     ctrl_streamer_o.b_source_ctrl.addressgen_ctrl.feat_stride = '0;
     ctrl_streamer_o.b_source_ctrl.addressgen_ctrl.feat_length = 1;
-    ctrl_streamer_o.b_source_ctrl.addressgen_ctrl.base_addr   = reg_file_i.hwpe_params[MAC_REG_B_ADDR] + (flags_ucode_i.offs[MAC_UCODE_B_OFFS]);
+    ctrl_streamer_o.b_source_ctrl.addressgen_ctrl.base_addr   = reg_file_i.hwpe_params[MAC_REG_B_ADDR] + (flags_uloop_i.offs[MAC_UCODE_B_OFFS]);
     ctrl_streamer_o.b_source_ctrl.addressgen_ctrl.feat_roll   = '0;
     ctrl_streamer_o.b_source_ctrl.addressgen_ctrl.loop_outer  = '0;
     ctrl_streamer_o.b_source_ctrl.addressgen_ctrl.realign_type = '0;
@@ -81,7 +81,7 @@ module mac_fsm (
     ctrl_streamer_o.c_source_ctrl.addressgen_ctrl.line_length = 1;
     ctrl_streamer_o.c_source_ctrl.addressgen_ctrl.feat_stride = '0;
     ctrl_streamer_o.c_source_ctrl.addressgen_ctrl.feat_length = 1;
-    ctrl_streamer_o.c_source_ctrl.addressgen_ctrl.base_addr   = reg_file_i.hwpe_params[MAC_REG_C_ADDR] + (flags_ucode_i.offs[MAC_UCODE_C_OFFS]);
+    ctrl_streamer_o.c_source_ctrl.addressgen_ctrl.base_addr   = reg_file_i.hwpe_params[MAC_REG_C_ADDR] + (flags_uloop_i.offs[MAC_UCODE_C_OFFS]);
     ctrl_streamer_o.c_source_ctrl.addressgen_ctrl.feat_roll   = '0;
     ctrl_streamer_o.c_source_ctrl.addressgen_ctrl.loop_outer  = '0;
     ctrl_streamer_o.c_source_ctrl.addressgen_ctrl.realign_type = '0;
@@ -91,14 +91,10 @@ module mac_fsm (
     ctrl_streamer_o.d_sink_ctrl.addressgen_ctrl.line_length = (ctrl_i.simple_mul) ? ctrl_i.len : 1;
     ctrl_streamer_o.d_sink_ctrl.addressgen_ctrl.feat_stride = '0;
     ctrl_streamer_o.d_sink_ctrl.addressgen_ctrl.feat_length = 1;
-    ctrl_streamer_o.d_sink_ctrl.addressgen_ctrl.base_addr   = reg_file_i.hwpe_params[MAC_REG_D_ADDR] + (flags_ucode_i.offs[MAC_UCODE_D_OFFS]);
+    ctrl_streamer_o.d_sink_ctrl.addressgen_ctrl.base_addr   = reg_file_i.hwpe_params[MAC_REG_D_ADDR] + (flags_uloop_i.offs[MAC_UCODE_D_OFFS]);
     ctrl_streamer_o.d_sink_ctrl.addressgen_ctrl.feat_roll   = '0;
     ctrl_streamer_o.d_sink_ctrl.addressgen_ctrl.loop_outer  = '0;
     ctrl_streamer_o.d_sink_ctrl.addressgen_ctrl.realign_type = '0;
-
-    // ucode
-    ctrl_ucode_o.accum_loop = '0; // this is not relevant for this simple accelerator, and it should be moved from
-                                  // ucode to an accelerator-specific module
 
     // engine
     ctrl_engine_o.clear      = '1;
@@ -118,12 +114,12 @@ module mac_fsm (
     ctrl_streamer_o.b_source_ctrl.req_start = '0;
     ctrl_streamer_o.c_source_ctrl.req_start = '0;
     ctrl_streamer_o.d_sink_ctrl.req_start   = '0;
-    ctrl_ucode_o.enable                     = '0;
-    ctrl_ucode_o.clear                      = '0;
+    ctrl_uloop_o.enable                     = '0;
+    ctrl_uloop_o.clear                      = '0;
     case(curr_state)
       FSM_IDLE: begin
         // wait for a start signal
-        ctrl_ucode_o.clear = '1;
+        ctrl_uloop_o.clear = '1;
         if(flags_slave_i.start) begin
           next_state = FSM_START;
         end
@@ -157,10 +153,10 @@ module mac_fsm (
       end
       FSM_UPDATEIDX: begin
         // update the indeces, then go back to load or idle
-        if(flags_ucode_i.valid == 1'b0) begin
-          ctrl_ucode_o.enable = 1'b1;
+        if(flags_uloop_i.valid == 1'b0) begin
+          ctrl_uloop_o.enable = 1'b1;
         end
-        else if(flags_ucode_i.done) begin
+        else if(flags_uloop_i.done) begin
           next_state = FSM_TERMINATE;
         end
         else if(flags_streamer_i.a_source_flags.ready_start &
@@ -185,7 +181,7 @@ module mac_fsm (
         // wait for the flags to be ok then go back to load
         ctrl_engine_o.clear  = 1'b0;
         ctrl_engine_o.enable = 1'b0;
-        ctrl_ucode_o.enable  = 1'b0;
+        ctrl_uloop_o.enable  = 1'b0;
         if(flags_streamer_i.a_source_flags.ready_start &
            flags_streamer_i.b_source_flags.ready_start &
            flags_streamer_i.c_source_flags.ready_start &

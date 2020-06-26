@@ -1,6 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
-# ucode_check.py
+# uloop_check.py
 # Francesco Conti <fconti@iis.ee.ethz.ch>
 #
 # Copyright (C) 2018-2019 ETH Zurich, University of Bologna
@@ -15,7 +15,7 @@
 #
 
 from __future__ import print_function
-from ucode_common import *
+from uloop_common import *
 
 # Sets the overall number of loops activated in the microcode (max. 6 nested loops)
 NB_LOOPS = 1
@@ -37,7 +37,7 @@ def iterate_hl_loop(nb_iter, iter_stride, one_stride):
 
 VERBOSE = True
 
-def ucode_check(nb_iter, iter_stride, one_stride, verbose=VERBOSE):
+def uloop_check(nb_iter, iter_stride, one_stride, verbose=VERBOSE):
 
     print("> Config nb_iter=%d, iter_stride=%d, one_stride=%d" % (nb_iter, iter_stride, one_stride))
 
@@ -55,8 +55,8 @@ def ucode_check(nb_iter, iter_stride, one_stride, verbose=VERBOSE):
         one_stride,
     ]
 
-    loops_ops,code,mnem = ucode_load("code.yml")
-    loops = ucode_get_loops(loops_ops, loops_range)
+    loops_ops,code,mnem = uloop_load("code.yml")
+    loops = uloop_get_loops(loops_ops, loops_range)
 
     err = 0
     idx  = []
@@ -65,22 +65,21 @@ def ucode_check(nb_iter, iter_stride, one_stride, verbose=VERBOSE):
     state = (0,0,0,idx)
     busy = False
     execute = True
-    # ucode_print_idx(state, registers)
+    # uloop_print_idx(state, registers)
     hidx = 0, 0, 0, 0, 0, 0
     hl_loop = iterate_hl_loop(nb_iter, iter_stride, one_stride)
-    # ha, hb, hc, hd, hidx = hl_loop.next()
     for i in range(0,1000):
-        new_registers = ucode_execute(state, code, registers)
-        execute,end,busy,state = ucode_state_machine(loops, state, verbose=verbose, nb_loops=NB_LOOPS)
+        new_registers = uloop_execute(state, code, registers)
+        execute,end,busy,state = uloop_state_machine(loops, state, verbose=verbose, nb_loops=NB_LOOPS)
         if execute:
             registers = new_registers
         if not busy:
             try:
-                ha, hb, hc, hd, hidx = hl_loop.next()
+                ha, hb, hc, hd, hidx = next(hl_loop)
             except StopIteration:
                 pass
             if verbose:
-                ucode_print_idx(state, registers)
+                uloop_print_idx(state, registers)
             ua, ub, uc, ud = registers[0:4]
             if (ha != ua or hb != ub or hc != uc or hd != ud):
                 if verbose:
@@ -97,11 +96,11 @@ def ucode_check(nb_iter, iter_stride, one_stride, verbose=VERBOSE):
 for nb_iter in (16,32,64,):
     for iter_stride in (1,16,32,):
         one_stride = 1
-        err = ucode_check(nb_iter, iter_stride, one_stride, verbose=False)
+        err = uloop_check(nb_iter, iter_stride, one_stride, verbose=False)
         if err>0:
             break
     if err>0:
         break
 if err>0:
-    err = ucode_check(nb_iter, iter_stride, one_stride, verbose=True)
+    err = uloop_check(nb_iter, iter_stride, one_stride, verbose=True)
 
