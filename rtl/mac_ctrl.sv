@@ -22,7 +22,7 @@ module mac_ctrl
   parameter int unsigned N_CONTEXT       = 2,
   parameter int unsigned N_IO_REGS       = 16,
   parameter int unsigned ID              = 10,
-  parameter int unsigned UCODE_HARDWIRED = 0
+  parameter int unsigned ULOOP_HARDWIRED = 0
 )
 (
   // global signals
@@ -52,11 +52,11 @@ module mac_ctrl
   logic unsigned [15:0] static_reg_shift;
   logic static_reg_simplemul;
 
-  logic [223:0]  ucode_flat;
-  ucode_t ucode;
-  ctrl_ucode_t   ucode_ctrl;
-  flags_ucode_t  ucode_flags;
-  logic [11:0][31:0] ucode_registers_read;
+  uloop_bytecode_t [31:0] uloop_bytecode;
+  uloop_code_t uloop_code;
+  ctrl_uloop_t   uloop_ctrl;
+  flags_uloop_t  uloop_flags;
+  logic [11:0][31:0] uloop_registers_read;
 
   ctrl_fsm_t fsm_ctrl;
 
@@ -65,7 +65,7 @@ module mac_ctrl
     .N_CORES        ( N_CORES               ),
     .N_CONTEXT      ( N_CONTEXT             ),
     .N_IO_REGS      ( N_IO_REGS             ),
-    .N_GENERIC_REGS ( (1-UCODE_HARDWIRED)*8 ),
+    .N_GENERIC_REGS ( (1-ULOOP_HARDWIRED)*8 ),
     .ID_WIDTH       ( ID                    )
   ) i_slave (
     .clk_i    ( clk_i       ),
@@ -88,43 +88,42 @@ module mac_ctrl
 
   /* Microcode processor */
   generate
-    if(UCODE_HARDWIRED != 0) begin
-      // equivalent to the microcode in ucode/code.yml
-      assign ucode_flat = 224'h0000000000040000000000000000000000000000000008cd11a12c05;
+    if(ULOOP_HARDWIRED == 1) begin : hardwired_uloop_gen
+      assign uloop_bytecode = 196'h00000000000000000000000000000000000008cd11a12c05;
     end
-    else begin
-      // the microcode is stored in registers independent of context (job)
-      assign ucode_flat = reg_file.generic_params[6:0];
+    else begin : not_hardwired_uloop_gen
+      assign uloop_bytecode = reg_file.generic_params[5:0];
     end
   endgenerate
-  assign ucode = { 
-    // loops & bytecode
-    ucode_flat,
-    // ranges
-    12'b0,
-    12'b0,
-    12'b0,
-    12'b0,
-    12'b0,
-    static_reg_nb_iter[11:0]
-  };
-  assign ucode_registers_read[MAC_UCODE_MNEM_NBITER]     = static_reg_nb_iter;
-  assign ucode_registers_read[MAC_UCODE_MNEM_ITERSTRIDE] = static_reg_vectstride;
-  assign ucode_registers_read[MAC_UCODE_MNEM_ONESTRIDE]  = static_reg_onestride;
-  assign ucode_registers_read[11:3] = '0;
-  hwpe_ctrl_ucode #(
+
+  // currently hardwired
+  always_comb
+  begin
+    uloop_code = '0;
+    uloop_code.loops[0] = 8'h04;
+    for(int i=0; i<196; i++) begin
+      uloop_code.code [i] = uloop_bytecode[i];
+    end
+    uloop_code.range[0] = static_reg_nb_iter[11:0];
+  end
+
+  assign uloop_registers_read[MAC_UCODE_MNEM_NBITER]     = static_reg_nb_iter;
+  assign uloop_registers_read[MAC_UCODE_MNEM_ITERSTRIDE] = static_reg_vectstride;
+  assign uloop_registers_read[MAC_UCODE_MNEM_ONESTRIDE]  = static_reg_onestride;
+  assign uloop_registers_read[11:3] = '0;
+  hwpe_ctrl_uloop #(
     .NB_LOOPS  ( 1  ),
     .NB_REG    ( 4  ),
     .NB_RO_REG ( 12 )
-  ) i_ucode (
+  ) i_uloop (
     .clk_i            ( clk_i                ),
     .rst_ni           ( rst_ni               ),
     .test_mode_i      ( test_mode_i          ),
     .clear_i          ( clear_o              ),
-    .ctrl_i           ( ucode_ctrl           ),
-    .flags_o          ( ucode_flags          ),
-    .ucode_i          ( ucode                ),
-    .registers_read_i ( ucode_registers_read )
+    .ctrl_i           ( uloop_ctrl           ),
+    .flags_o          ( uloop_flags          ),
+    .uloop_code_i     ( uloop_code           ),
+    .registers_read_i ( uloop_registers_read )
   );
 
   /* Main FSM */
@@ -137,8 +136,8 @@ module mac_ctrl
     .flags_streamer_i ( flags_streamer_i   ),
     .ctrl_engine_o    ( ctrl_engine_o      ),
     .flags_engine_i   ( flags_engine_i     ),
-    .ctrl_ucode_o     ( ucode_ctrl         ),
-    .flags_ucode_i    ( ucode_flags        ),
+    .ctrl_uloop_o     ( uloop_ctrl         ),
+    .flags_uloop_i    ( uloop_flags        ),
     .ctrl_slave_o     ( slave_ctrl         ),
     .flags_slave_i    ( slave_flags        ),
     .reg_file_i       ( reg_file           ),
