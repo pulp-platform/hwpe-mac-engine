@@ -1,17 +1,21 @@
-#!/usr/bin/env python#
+#!/usr/bin/env python
 #
-# ucode_common.py
+# uloop_common.sv
 # Francesco Conti <fconti@iis.ee.ethz.ch>
 #
-# Copyright (C) 2018-2019 ETH Zurich, University of Bologna
-# Copyright and related rights are licensed under the Solderpad Hardware
-# License, Version 0.51 (the "License"); you may not use this file except in
-# compliance with the License.  You may obtain a copy of the License at
-# http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
-# or agreed to in writing, software, hardware and materials distributed under
-# this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-# CONDITIONS OF ANY KIND, either express or implied. See the License for the
-# specific language governing permissions and limitations under the License.
+# Copyright (C) 2017-2019 ETH Zurich, University of Bologna
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# See LICENSE.sw.txt for details.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 from __future__ import print_function
@@ -23,8 +27,8 @@ try:
 except ImportError:
     from ordereddict import OrderedDict
 
-MAX_NB_LOOPS  = 6
-UCODE_LEN = 192 # was 176
+NB_LOOPS_DEFAULT = 6
+ULOOP_LEN = 192 # was 176
 
 def yaml_ordered_load(stream, Loader=yaml.Loader, object_pairs_hook=OrderedDict):
     class OrderedLoader(Loader):
@@ -37,8 +41,7 @@ def yaml_ordered_load(stream, Loader=yaml.Loader, object_pairs_hook=OrderedDict)
         construct_mapping)
     return yaml.load(stream, OrderedLoader)
 
-def ucode_state_machine(loops, curr_state, verbose=False, nb_loops=MAX_NB_LOOPS):
-    assert (nb_loops < MAX_NB_LOOPS)
+def uloop_state_machine(loops, curr_state, nb_loops=NB_LOOPS_DEFAULT, verbose=False):
     curr_addr, curr_loop, curr_op, curr_idx = curr_state
     next_addr = curr_addr
     next_loop = curr_loop
@@ -60,10 +63,10 @@ def ucode_state_machine(loops, curr_state, verbose=False, nb_loops=MAX_NB_LOOPS)
         if verbose:
             print ("@%d %s ITERATE CURRENT LOOP %d & GOTO LOOP 0" % (curr_addr, str(curr_state[3][::-1]), curr_loop))
         next_loop = 0
-        for j in xrange(0,curr_loop):
+        for j in range(0,curr_loop):
             next_idx[j] = 0
         next_idx[curr_loop] = curr_idx[curr_loop] + 1
-        next_addr = loops[0]['ucode_addr']
+        next_addr = loops[0]['uloop_addr']
         next_op   = 0
         busy = False
         execute = True
@@ -71,7 +74,7 @@ def ucode_state_machine(loops, curr_state, verbose=False, nb_loops=MAX_NB_LOOPS)
     elif curr_idx[curr_loop] < loops[curr_loop]['range'] - 1:
         if verbose:
             print ("@%d %s ITERATE CURRENT LOOP %d                  " % (curr_addr, str(curr_state[3][::-1]), curr_loop))
-        next_addr = loops[curr_loop]['ucode_addr']
+        next_addr = loops[curr_loop]['uloop_addr']
         next_op   = 0
         next_idx[curr_loop] = curr_idx[curr_loop] + 1
         busy = False
@@ -81,7 +84,7 @@ def ucode_state_machine(loops, curr_state, verbose=False, nb_loops=MAX_NB_LOOPS)
         if verbose:
             print ("@%d %s GOTO NEXT LOOP %d                        " % (curr_addr, str(curr_state[3][::-1]), curr_loop+1))
         next_loop = curr_loop + 1
-        next_addr = loops[curr_loop+1]['ucode_addr']
+        next_addr = loops[curr_loop+1]['uloop_addr']
         next_op   = 0
         busy = True
         execute = False
@@ -93,14 +96,14 @@ def ucode_state_machine(loops, curr_state, verbose=False, nb_loops=MAX_NB_LOOPS)
         next_addr = 0
         next_op   = 0
         next_idx  = []
-        for j in xrange(nb_loops):
+        for j in range(nb_loops):
             next_idx.append(0)
         busy = False
         execute = False
     next_state = next_addr, next_loop, next_op, next_idx
     return execute,end,busy,next_state
 
-def ucode_execute(state, code, registers):
+def uloop_execute(state, code, registers):
     addr, loop, op, idx = state
     new_registers = registers[:]
     if code[addr]['op_sel']:
@@ -109,10 +112,13 @@ def ucode_execute(state, code, registers):
         new_registers[code[addr]['a']] = registers[code[addr]['b']]
     return new_registers
 
-def ucode_print_idx(state, registers):
-    print ("loop:%d r0:%d r1:%d r2:%d r3:%d" % (state[1], registers[0], registers[1], registers[2], registers[3]))
+def uloop_print_idx(state, registers, compact=False):
+    if not compact:
+        print ("r0:%d r1:%d r2:%d r3:%d" % (registers[0], registers[1], registers[2], registers[3]))
+    else:
+        print ("%d,%d,%d,%d" % (registers[0], registers[1], registers[2], registers[3]))
 
-def ucode_bytecode(code, loops_ops):
+def uloop_bytecode(code, loops_ops):
     bytecode = {}
     bytecode['code'] = BitArray()
     for c in code[::-1]:
@@ -125,10 +131,10 @@ def ucode_bytecode(code, loops_ops):
         b.append(a_b)
         b.append(b_b)
         bytecode['code'].append(b)
-    if bytecode['code'].length < UCODE_LEN:
-        bytecode['code'].prepend(BitArray(uint=0, length=UCODE_LEN-bytecode['code'].length))
+    if bytecode['code'].length < ULOOP_LEN:
+        bytecode['code'].prepend(BitArray(uint=0, length=ULOOP_LEN-bytecode['code'].length))
     else:
-        print("Error!!! UCODE_LEN=%d is too small for bytecode of %d bits" % (UCODE_LEN, bytecode['code'].length))
+        print("Error!!! ULOOP_LEN=%d is too small for bytecode of %d bits" % (ULOOP_LEN, bytecode['code'].length))
         return None
     bytecode['loops'] = BitArray()
     a = 0
@@ -143,7 +149,7 @@ def ucode_bytecode(code, loops_ops):
         bytecode['loops'].append(o_b)
     return bytecode
 
-def ucode_load(name):
+def uloop_load(name):
     with open(name) as f:
         code_p = yaml_ordered_load(f, yaml.SafeLoader)
     mnem_p = code_p['mnemonics']
@@ -172,14 +178,14 @@ def ucode_load(name):
         code.append(cn)
     return loops_ops,code,mnem_p
 
-def ucode_get_loops(loops_ops, loops_range):
+def uloop_get_loops(loops_ops, loops_range):
     loops = []
     a = 0
     for o,r in zip(loops_ops, loops_range):
         l = {}
         l['nb_ops']     = o
         l['range']      = r
-        l['ucode_addr'] = a
+        l['uloop_addr'] = a
         a += o
         loops.append(l)
     return loops
