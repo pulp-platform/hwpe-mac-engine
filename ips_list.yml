@@ -1,5 +1,5 @@
 hwpe-ctrl:
-  commit: v1.5
-hwpe-stream:
   commit: v1.6.1
+hwpe-stream:
+  commit: v1.6.3
 
