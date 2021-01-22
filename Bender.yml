@@ -1,0 +1,29 @@
+package:
+  name: hwpe-mac-engine
+  authors:
+    - "Francesco Conti <f.conti@unibo.it>"
+
+dependencies:
+  hwpe-stream: { git: "https://github.com/pulp-platform/hwpe-stream.git", version: 1.6.3 }
+  hwpe-ctrl:   { git: "https://github.com/pulp-platform/hwpe-ctrl.git", version: 1.6.1 }
+
+
+sources:
+  - include_dirs:
+      - rtl
+    files:
+      # Source files grouped in levels. Files in level 0 have no dependencies on files in this
+      # package. Files in level 1 only depend on files in level 0, files in level 2 on files in
+      # levels 1 and 0, etc. Files within a level are ordered alphabetically.
+      # Level 0
+      - rtl/mac_package.sv
+      # Level 1
+      - rtl/mac_engine.sv
+      - rtl/mac_fsm.sv
+      - rtl/mac_streamer.sv
+      # Level 2
+      - rtl/mac_ctrl.sv
+      # Level 3
+      - rtl/mac_top.sv
+      # Level 4
+      - wrap/mac_top_wrap.sv
