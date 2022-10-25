@@ -1,8 +1,8 @@
 /*
  * mac_engine.sv
- * Francesco Conti <fconti@iis.ee.ethz.ch>
+ * Francesco Conti <f.conti@unibo.it>
  *
- * Copyright (C) 2018 ETH Zurich, University of Bologna
+ * Copyright (C) 2018-2022 ETH Zurich, University of Bologna
  * Copyright and related rights are licensed under the Solderpad Hardware
  * License, Version 0.51 (the "License"); you may not use this file except in
  * compliance with the License.  You may obtain a copy of the License at
@@ -74,19 +74,31 @@ module mac_engine
   // Packed structs are essentially bit vectors where bit fields have a name, and as such
   // are easily synthesizable and much more readable than Verilog-2001-ish code.
 
-  // shift c_i by ctrl_i.shift bits to the left
+  // Take `c_i` and shift it by `ctrl_i.shift` bits to the left in a sign-preserving way.
+  // The fixed-point representation of the input and output streams is not necessarily aligned
+  // with that of the accumulator `r_acc`, which accounts for the `a_i*b_i` product.
+  // Since `c_i` is used only to preload the accumulator, `c_shifted` is brought to the same
+  // fixed-point format.
   always_comb
   begin : shift_c
     c_shifted = $signed(c_i.data <<< ctrl_i.shift);
   end
 
-  // multiply a_i by b_i
+  // Signed product between `a_i` and `b_i`. Notice this is combinational logic, and the
+  // synthesis tool will implement it with an appropriate design from its synthetic library,
+  // such as a Wallace-tree Booth multiplier.
   always_comb
   begin : mult_a_X_b
     mult = $signed(a_i.data) * $signed(b_i.data);
   end
 
-  // r_mult stores a_i * b_i
+  // The output of the product is registered, introducing one cycle of latency. 
+  // This pipeline register not only cuts combinational paths from `a_i` and `b_i`
+  // to the adder after `mult`, but it is also design to preserve the correct data
+  // flow by enabling backpressure control through a valid/ready handshake.
+  // The register also includes an explicit soft clear (used to initialize the accelerator
+  // via a register-mapped access without resetting the system) and an enable signal,
+  // used for global clock gating.
   always_ff @(posedge clk_i or negedge rst_ni)
   begin : mult_pipe_data
     if(~rst_ni) begin
@@ -96,14 +108,24 @@ module mac_engine
       r_mult <= '0;
     end
     else if (ctrl_i.enable) begin
-      // r_mult value is updated if there is a valid handshake at its input
+      // `r_mult` value is updated if there is a valid handshake at both its inputs;
+      // in all other cases it is kept constant.
       if (a_i.valid & b_i.valid & a_i.ready & b_i.ready) begin
         r_mult <= mult;
       end
     end
   end
 
-  // r_mult is valid following a valid handshake
+  // This calculates the `valid` signal associated with `r_mult`. In this case, we
+  // chose to propagate this signal explicitly through all pipeline registers in the
+  // datapath to showcase explicitly how this can be done (in other accelerators,
+  // one could manage validity in a less sophisticated way, e.g., with a counter).
+  // In detail, `r_mult` is valid when both `a_i` and `b_i` are valid, with one
+  // cycle of delay. The validity is evaluated only in two conditions:
+  //  1) when a valid handshake happens at the output (`r_mult` valid & ready)
+  //  2) when the inputs are known to be valid
+  // Of course, by construction `r_mult_valid` can transition from 1 to 0 only in
+  // condition 1), that is, following a valid handshake at the output.
   always_ff @(posedge clk_i or negedge rst_ni)
   begin : mult_pipe_valid
     if(~rst_ni) begin
@@ -120,6 +142,15 @@ module mac_engine
     end
   end
 
+  // `r_acc` is the accumulator register of the MAC engine. In this case, we coded
+  // the full functionality of the accumulator (combinational sum and sequential register)
+  // inside the same `always_ff` block. The behavior of the accumulator register here
+  // is entirely driven by the self-timed valid & ready handshakes:
+  //  1) if there are both new valid multiplier values and `c_i`, it inits the `r_acc`
+  //     register with their sum (with `c_i` left-shifted);
+  //  2) if there is only a `c_i` valid, it inits the `r_acc` with its (shifted) value;
+  //  3) it only multiplier values are valid & ready, it accumulates the current value
+  //     of `r_acc` with `r_mult`.
   always_ff @(posedge clk_i or negedge rst_ni)
   begin : accumulator
     if(~rst_ni) begin
@@ -144,6 +175,11 @@ module mac_engine
     end
   end
 
+  // Differently to `r_mult`, the validity of `r_acc` depends on a full dot-product having
+  // happened, controlled by comparing the `r_cnt` counter with the size `ctrl_i.len`.
+  // The validity is evaluated when the length reaches this threshold and the `r_mult` has 
+  // a valid handshake (as `r_mult` is the input from `r_acc`'s viewpoint). It is also
+  // re-evaluated after a correct output transition.
   always_ff @(posedge clk_i or negedge rst_ni)
   begin : accumulator_valid
     if(~rst_ni) begin
@@ -160,6 +196,8 @@ module mac_engine
     end
   end
 
+  // Depending on the configured mode, the output can be taken directly from `r_mult`, or
+  // from `r_acc`. In both cases, it is right-shifted before streaming it out.
   always_comb
   begin : d_nonshifted_comb
     if(ctrl_i.simple_mul) begin
@@ -172,17 +210,19 @@ module mac_engine
     end
   end
 
+  // Output is right-shifted into the correct QF representation. There is currently
+  // no support for rounding and for saturation/clipping.
   always_comb
   begin
     d_o.data  = $signed(d_nonshifted >>> ctrl_i.shift); // no saturation/clipping
     d_o.valid = ctrl_i.enable & d_nonshifted_valid;
-    d_o.strb  = '1; // for now, strb is always '1
+    d_o.strb  = '1; // strb is always '1 --> all bytes are considered valid
   end
 
   // The control counter is implemented directly inside this module; as the control is
   // minimal, it was not deemed convenient to move it to another submodule. For bigger
   // FSMs that is typically the most advantageous choice.
-
+  // The counter counts `r_mult` valid outputs.
   always_comb
   begin
     cnt = r_cnt + 1;
@@ -197,12 +237,16 @@ module mac_engine
       r_cnt <= '0;
     end
     else if(ctrl_i.enable) begin
+      // The counter is updated
+      //  1) at the start of operations
+      //  2) when the count value is between 0 and `len` (excluded), and there is a valid `r_mult` handshake.
       if ((ctrl_i.start == 1'b1) || ((r_cnt > 0) && (r_cnt < ctrl_i.len) && (r_mult_valid & r_mult_ready == 1'b1))) begin
         r_cnt <= cnt;
       end
     end
   end
 
+  // Export counter and valid accumulator to main HWPE control FSM.
   assign flags_o.cnt = r_cnt;
   assign flags_o.acc_valid = r_acc_valid;
 
@@ -215,22 +259,23 @@ module mac_engine
   // In the following:
   // R_valid & R_ready denominate the handshake at the *output* (Q port) of pipe register R
 
-  // output accepts new value from accumulator when the output is ready or r_acc is invalid
+  // Output accepts new value from accumulator when the output is ready or `r_acc` is invalid
   assign r_acc_ready  = d_o.ready | ~r_acc_valid;
-  // accumulator accepts new value from multiplier when
-  //   1) output is ready or r_mult is invalid (if in simple multiplication mode)
-  //   2) r_acc is ready or r_mult is invalid (if in scalar product mode)
+  // Accumulator accepts new value from multiplier when
+  //  1) output is ready or `r_mult` is invalid (if in simple multiplication mode)
+  //  2) `r_acc` is ready or `r_mult` is invalid (if in scalar product mode)
   assign r_mult_ready = (ctrl_i.simple_mul) ? d_o.ready   | ~r_mult_valid
                                             : r_acc_ready | ~r_mult_valid;
-  // multiplier accepts new value from a_i/b_i when r_mult is ready and both a_i/b_i are valid, or when both a_i/b_i are invalid
+  // Multiplier accepts new value from `a_i` and `b_i` when `r_mult` is ready and both
+  // `a_i` & `b_i` are valid, or when both `a_i` & `b_i` are invalid
   assign a_i.ready = (r_mult_ready & a_i.valid & b_i.valid) | (~a_i.valid & ~b_i.valid);
   assign b_i.ready = (r_mult_ready & a_i.valid & b_i.valid) | (~a_i.valid & ~b_i.valid);
-  // multiplier accepts new value from c_i when r_acc is ready or c_i is invalid
+  // Multiplier accepts new value from `c_i` when `r_acc` is ready or `c_i` is invalid
   assign c_i.ready    = r_acc_ready  | ~c_i.valid;
 
   // The following assertions help in getting the rules on ready & valid right.
   // They are copied from the general stream rules in hwpe_stream_interfaces.sv
-  // and adapted to the internal r_acc and r_mult signals.
+  // and adapted to the internal `r_acc` and `r_mult` signals.
   `ifndef SYNTHESIS
   `ifndef VERILATOR
     // The data and strb can change their value 1) when valid is deasserted,
@@ -246,7 +291,7 @@ module mac_engine
       ($past(r_mult_valid) & ~($past(r_mult_valid) & $past(r_mult_ready))) |-> (r_mult == $past(r_mult));
     endproperty;
     
-    // The deassertion of valid (transition 1í0) can happen only in the cycle
+    // The deassertion of valid (transition 1->0) can happen only in the cycle
     // after a valid handshake. In other words, valid data produced by a source
     // must be consumed on the sink side before valid is deasserted.
     property r_acc_valid_deassert_rule;
