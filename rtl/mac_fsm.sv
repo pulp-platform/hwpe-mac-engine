@@ -116,6 +116,7 @@ module mac_fsm (
     ctrl_streamer_o.d_sink_ctrl.req_start   = '0;
     ctrl_uloop_o.enable                     = '0;
     ctrl_uloop_o.clear                      = '0;
+    ctrl_uloop_o.ready                      = 1'b1;
     case(curr_state)
       FSM_IDLE: begin
         // wait for a start signal
